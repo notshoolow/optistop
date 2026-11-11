@@ -146,6 +146,12 @@ export function RouteMap({
       map.resize();
     }, 300);
 
+    const onWindowResize = () => {
+      map.resize();
+    };
+    window.addEventListener('resize', onWindowResize);
+    window.addEventListener('orientationchange', onWindowResize);
+
     const resizeObserver = new ResizeObserver(() => {
       map.resize();
     });
@@ -154,6 +160,8 @@ export function RouteMap({
     return () => {
       clearTimeout(fallbackTimeout);
       clearTimeout(initTimer);
+      window.removeEventListener('resize', onWindowResize);
+      window.removeEventListener('orientationchange', onWindowResize);
       resizeObserver.disconnect();
       map.off('style.load', markStyleReady);
       map.off('load', markStyleReady);
@@ -339,6 +347,7 @@ export function RouteMap({
 
     if (fullPolyline.length >= 2) {
       justLoadedRouteRef.current = true;
+      map.resize();
       const bounds = new maplibregl.LngLatBounds();
       for (const pt of fullPolyline) bounds.extend([pt.lon, pt.lat]);
       for (const st of optimalStops) {
@@ -404,7 +413,19 @@ export function RouteMap({
       aria-label="Mapa interactivo de la ruta y paradas óptimas"
       className="relative w-full h-full min-h-[260px] lg:min-h-[320px] bg-[#eae6dc] overflow-hidden"
     >
-      <div ref={mapContainerRef} className="absolute inset-0 w-full h-full" />
+      <div
+        ref={mapContainerRef}
+        className="absolute inset-0 w-full h-full"
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          width: '100%',
+          height: '100%',
+        }}
+      />
 
       {/* Píldora flotante minimalista con el significado visual del tramo */}
       <div className="absolute bottom-4 left-4 bg-[#fcfbf8]/95 backdrop-blur-md px-3.5 py-2 rounded-full shadow-md border border-[#e6e2d8] text-xs flex items-center gap-4 text-[#181816]">

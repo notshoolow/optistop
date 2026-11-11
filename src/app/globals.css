@@ -33,6 +33,35 @@ body {
 }
 
 /* ==========================================================================
+   Contenedor y Lienzo MapLibre GL en Dispositivos Móviles y Escritorio
+   ========================================================================== */
+.maplibregl-map {
+  width: 100% !important;
+  height: 100% !important;
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+}
+
+.maplibregl-canvas-container {
+  width: 100% !important;
+  height: 100% !important;
+  position: absolute !important;
+  inset: 0 !important;
+}
+
+.maplibregl-canvas {
+  width: 100% !important;
+  height: 100% !important;
+  position: absolute !important;
+  left: 0 !important;
+  top: 0 !important;
+  outline: none;
+}
+
+/* ==========================================================================
    Marcadores de Parada en Mapa (Separación de Ancla WebGL y Píldora Animada)
    ========================================================================== */
 
