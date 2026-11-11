@@ -197,10 +197,17 @@ export function OptimalStopCard({
               </strong>{' '}
               · PK {stop.kmMarker} ({stop.routeMetrics.distanceFromOriginKm} km)
             </span>
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#f4f1ea] text-[#181816] font-semibold">
-              <Sparkles className="w-3 h-3 text-[#165b40]" />
-              Índice {stop.scoring.optiStopScore}/100
-            </span>
+            <div className="flex items-center gap-1.5">
+              {stop.source === 'GOOGLE_CACHED' || stop.googlePlaceId ? (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#e8f0fe] text-[#1a73e8] font-semibold text-[11px]">
+                  ✓ Google Maps
+                </span>
+              ) : null}
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#f4f1ea] text-[#181816] font-semibold">
+                <Sparkles className="w-3 h-3 text-[#165b40]" />
+                Índice {stop.scoring.optiStopScore}/100
+              </span>
+            </div>
           </div>
 
           <p className="text-[#5c5a54]">

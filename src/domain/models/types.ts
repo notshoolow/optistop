@@ -90,6 +90,8 @@ export interface RoadStopEntity {
   amenities: StopAmenities;
   source: StopSource;
   dataQuality: DataQualityLevel;
+  googlePlaceId?: string;
+  googleMapsPlaceUrl?: string;
   cachedAtIso?: string;
 }
 

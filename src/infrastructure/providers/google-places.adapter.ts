@@ -27,7 +27,10 @@ export class GooglePlacesQuotaGuardedAdapter
 
   constructor(options?: GooglePlacesAdapterOptions) {
     this.apiKey = options?.apiKey ?? process.env.GOOGLE_PLACES_API_KEY;
-    this.maxFreeCallsPerMonth = options?.maxFreeCallsPerMonth ?? 900;
+    const envLimit = process.env.GOOGLE_PLACES_MAX_MONTHLY_FREE_CALLS;
+    this.maxFreeCallsPerMonth =
+      options?.maxFreeCallsPerMonth ??
+      (envLimit ? Math.max(1, Number(envLimit)) : 150);
     this.quotaStore = options?.quotaStore;
   }
 
@@ -110,8 +113,11 @@ export class GooglePlacesQuotaGuardedAdapter
               ? 3
               : null;
 
+          const placeIdStr = String(p.id || idx);
+          const gMapsUrl = `https://www.google.com/maps/place/?q=place_id:${placeIdStr}`;
+
           return {
-            id: `gplaces-${String(p.id || idx)}`,
+            id: `gplaces-${placeIdStr}`,
             name: displayName.text || 'Restaurante en Ruta',
             category: 'RESTAURANT',
             highwayCode: 'Ruta Principal',
@@ -127,9 +133,9 @@ export class GooglePlacesQuotaGuardedAdapter
             reviewCount:
               typeof p.userRatingCount === 'number' ? p.userRatingCount : 0,
             priceLevel,
-            specialty: 'Establecimiento sincronizado desde Google Places',
+            specialty: 'Establecimiento verificado en Google Places',
             avgStopDurationMin: 35,
-            openingHours: 'Consultar horario en destino',
+            openingHours: 'Consultar horario en Google Maps',
             amenities: {
               hasEvChargerNearby: null,
               hasGasStationOnsite: null,
@@ -142,6 +148,8 @@ export class GooglePlacesQuotaGuardedAdapter
             },
             source: 'GOOGLE_CACHED',
             dataQuality: 'VERIFIED',
+            googlePlaceId: placeIdStr,
+            googleMapsPlaceUrl: gMapsUrl,
           };
         }
       );

@@ -219,7 +219,9 @@ export function evaluateCandidateStop(params: {
     navigationLinks: buildNavigationLinks(
       stop.coordinates,
       stop.name,
-      destinationCoord
+      destinationCoord,
+      stop.googlePlaceId,
+      stop.googleMapsPlaceUrl
     ),
   };
 }
