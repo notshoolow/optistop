@@ -68,6 +68,10 @@ async function loadSeedStops() {
     const localityMatch = block.match(/locality:\s*['"]([^'"]+)['"]/);
     const latMatch = block.match(/lat:\s*([0-9.-]+)/);
     const lonMatch = block.match(/lon:\s*([0-9.-]+)/);
+    const ratingMatch = block.match(/ratingAvg:\s*([0-9.]+)/);
+    const reviewMatch = block.match(/reviewCount:\s*(\d+)/);
+    const priceMatch = block.match(/priceLevel:\s*(\d+)/);
+    const specialtyMatch = block.match(/specialty:\s*['"]([^'"]+)['"]/);
 
     if (idMatch && nameMatch && latMatch && lonMatch) {
       stops.push({
@@ -80,6 +84,10 @@ async function loadSeedStops() {
           lat: Number(latMatch[1]),
           lon: Number(lonMatch[1]),
         },
+        ratingAvg: ratingMatch ? Number(ratingMatch[1]) : null,
+        reviewCount: reviewMatch ? Number(reviewMatch[1]) : 0,
+        priceLevel: priceMatch ? Number(priceMatch[1]) : 1,
+        specialty: specialtyMatch ? specialtyMatch[1] : '',
       });
     }
   }
@@ -173,10 +181,19 @@ async function upsertStopToSupabase(stop, googleData) {
     coordinates: stop.coordinates,
     accessType: existingPayload.accessType || 'HIGHWAY_EXIT_EASY',
     directionNotes: existingPayload.directionNotes || 'Acceso directo desde salida de autovía',
-    ratingAvg: googleData?.rating ?? existingPayload.ratingAvg ?? null,
-    reviewCount: googleData?.userRatingCount ?? existingPayload.reviewCount ?? 0,
-    priceLevel: googleData?.priceLevel ?? existingPayload.priceLevel ?? 1,
-    specialty: existingPayload.specialty || 'Parada recomendada en ruta',
+    ratingAvg:
+      googleData && typeof googleData.rating === 'number'
+        ? googleData.rating
+        : stop.ratingAvg ?? existingPayload.ratingAvg ?? null,
+    reviewCount:
+      googleData && typeof googleData.userRatingCount === 'number'
+        ? googleData.userRatingCount
+        : stop.reviewCount ?? existingPayload.reviewCount ?? 0,
+    priceLevel:
+      googleData && googleData.priceLevel
+        ? googleData.priceLevel
+        : stop.priceLevel ?? existingPayload.priceLevel ?? 1,
+    specialty: stop.specialty || existingPayload.specialty || 'Parada recomendada en ruta',
     avgStopDurationMin: existingPayload.avgStopDurationMin || 30,
     openingHours: existingPayload.openingHours || 'Consultar horario en Google Maps',
     amenities: existingPayload.amenities || {
@@ -293,9 +310,9 @@ async function main() {
         await upsertStopToSupabase(stop, {
           placeId: undefined,
           displayName: stop.name,
-          rating: null,
-          userRatingCount: 0,
-          priceLevel: 1,
+          rating: stop.ratingAvg,
+          userRatingCount: stop.reviewCount,
+          priceLevel: stop.priceLevel,
           googleMapsUri: directGoogleMapsUrl,
         });
         console.log(`  ✓ Guardado en Supabase con enlace directo verificado.`);
