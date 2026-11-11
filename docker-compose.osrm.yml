@@ -1,0 +1,17 @@
+# RNF-07.3: Infraestructura OSRM autoalojada para España (sin límites de uso en producción)
+# Preparación de datos (una sola vez):
+#   mkdir -p osrm-data
+#   curl -L https://download.geofabrik.de/europe/spain-latest.osm.pbf -o osrm-data/spain-latest.osm.pbf
+#   docker run -t -v "${PWD}/osrm-data:/data" ghcr.io/project-osrm/osrm-backend osrm-extract -p /opt/car.lua /data/spain-latest.osm.pbf
+#   docker run -t -v "${PWD}/osrm-data:/data" ghcr.io/project-osrm/osrm-backend osrm-partition /data/spain-latest.osrm
+#   docker run -t -v "${PWD}/osrm-data:/data" ghcr.io/project-osrm/osrm-backend osrm-customize /data/spain-latest.osrm
+services:
+  osrm-spain:
+    image: ghcr.io/project-osrm/osrm-backend:latest
+    container_name: optistop-osrm-spain
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./osrm-data:/data:ro
+    command: osrm-routed --algorithm mld /data/spain-latest.osrm

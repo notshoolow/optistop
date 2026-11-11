@@ -1,0 +1,34 @@
+name: OptiStop SDD CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Audit production dependencies (RNF-05.6)
+        run: npm audit --omit=dev --audit-level=high
+      - name: Typecheck & Lint (RNF-08.7)
+        run: |
+          npm run typecheck
+          npm run lint
+      - name: Specification & BDD Tests in UTC (RNF-06.1)
+        env:
+          TZ: UTC
+        run: npm test
+      - name: Specification & BDD Tests in Pacific/Auckland (RNF-06.1)
+        env:
+          TZ: Pacific/Auckland
+          TEST_TZ: Pacific/Auckland
+        run: npm test
+      - name: Production Build
+        run: npm run build
