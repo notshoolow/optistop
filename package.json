@@ -16,7 +16,9 @@
     "fixtures:corridors": "node scripts/build-corridor-fixtures.mjs",
     "seed:corridor": "node scripts/seed-corridor.mjs",
     "enrich:google": "node scripts/enrich-curated-with-google.mjs",
-    "reseed:real": "node scripts/reseed-real-database.mjs"
+    "reseed:real": "node scripts/reseed-real-database.mjs",
+    "ingest:phase1": "node scripts/ingest-service-areas-phase1.mjs",
+    "ingest:national": "node scripts/ingest-national-corridors.mjs"
   },
   "dependencies": {
     "lucide-react": "^0.475.0",

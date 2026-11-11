@@ -1222,4 +1222,8 @@ export const DEMO_STOPS: RoadStopEntity[] = ${JSON.stringify(demoSeedStops, null
   console.log('='.repeat(70));
 }
 
-main().catch(console.error);
+import { fileURLToPath } from 'node:url';
+
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  main().catch(console.error);
+}
