@@ -164,7 +164,7 @@ export class OverpassOsmAdapter implements IExternalStopProviderPort {
   private readonly endpoint: string | null;
   private readonly timeoutMs: number;
 
-  constructor(endpoint?: string | null, timeoutMs = 2500) {
+  constructor(endpoint?: string | null, timeoutMs = 4000) {
     const raw =
       endpoint !== undefined
         ? endpoint
@@ -186,7 +186,7 @@ export class OverpassOsmAdapter implements IExternalStopProviderPort {
     )},${corridor.maxLat.toFixed(3)},${corridor.maxLon.toFixed(3)}`;
 
     const query = `
-      [out:json][timeout:3];
+      [out:json][timeout:5];
       (
         node["amenity"~"restaurant|cafe|fuel|charging_station"](${bbox});
         way["highway"="services"](${bbox});
@@ -198,11 +198,13 @@ export class OverpassOsmAdapter implements IExternalStopProviderPort {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), this.timeoutMs);
 
+      const contactEmail =
+        process.env.OSM_CONTACT_EMAIL ?? 'dev@optistop.es';
       const res = await fetch(this.endpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
-          'User-Agent': 'OptiStopCarreteras/1.1',
+          'User-Agent': `OptiStopApp/1.1 (https://optistop.es; ${contactEmail})`,
         },
         body: `data=${encodeURIComponent(query)}`,
         signal: controller.signal,
