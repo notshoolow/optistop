@@ -7,7 +7,8 @@ export function buildGoogleReviewsUrl(
   stopCoord: Coordinates,
   stopName: string,
   googlePlaceId?: string,
-  googleMapsPlaceUrl?: string
+  googleMapsPlaceUrl?: string,
+  locality?: string
 ): string {
   if (googleMapsPlaceUrl) return googleMapsPlaceUrl;
   if (googlePlaceId) {
@@ -15,11 +16,9 @@ export function buildGoogleReviewsUrl(
       stopName
     )}&query_place_id=${googlePlaceId}`;
   }
-  const lat = stopCoord.lat.toFixed(5);
-  const lon = stopCoord.lon.toFixed(5);
-  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-    `${stopName} ${lat},${lon}`
-  )}`;
+  const cleanLocality = locality ? locality.replace(/\s*\([^)]*\)/, '').trim() : '';
+  const query = cleanLocality ? `${stopName}, ${cleanLocality}` : stopName;
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
 }
 
 /**

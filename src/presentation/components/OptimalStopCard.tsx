@@ -131,7 +131,8 @@ export function OptimalStopCard({
                   stop.coordinates,
                   stop.name,
                   stop.googlePlaceId,
-                  stop.googleMapsPlaceUrl
+                  stop.googleMapsPlaceUrl,
+                  stop.locality
                 )}
                 target="_blank"
                 rel="noopener noreferrer"
