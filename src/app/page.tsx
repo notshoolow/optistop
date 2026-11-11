@@ -1017,7 +1017,7 @@ export default function OptiStopHomePage() {
       {/* =====================================================================
           LIENZO PRINCIPAL DEL MAPA (Pantalla completa a la derecha)
           ===================================================================== */}
-      <main className="w-full h-[38dvh] lg:h-dvh flex-1 relative">
+      <main className="w-full h-[40dvh] min-h-[280px] lg:h-dvh flex-1 relative overflow-hidden shrink-0 lg:shrink">
         <RouteMap
           fullPolyline={data?.routeSummary.fullPolyline ?? []}
           windowPolyline={data?.routeSummary.windowPolyline ?? []}

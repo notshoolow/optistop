@@ -31,6 +31,27 @@ function getPillClassName(rank: number, isSelected: boolean): string {
   return `optistop-marker-pill focus:outline-none ${stateClass}`;
 }
 
+const FALLBACK_RASTER_STYLE: maplibregl.StyleSpecification = {
+  version: 8,
+  sources: {
+    'osm-raster': {
+      type: 'raster',
+      tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
+      tileSize: 256,
+      attribution: '© OpenStreetMap contributors',
+    },
+  },
+  layers: [
+    {
+      id: 'osm-raster-layer',
+      type: 'raster',
+      source: 'osm-raster',
+      minzoom: 0,
+      maxzoom: 19,
+    },
+  ],
+};
+
 export function RouteMap({
   fullPolyline,
   windowPolyline,
@@ -79,12 +100,51 @@ export function RouteMap({
 
     const markStyleReady = () => {
       isStyleReadyRef.current = true;
+      map.resize();
     };
     map.on('style.load', markStyleReady);
     map.on('load', markStyleReady);
 
+    // Si el worker de teselas vectoriales falla en un navegador móvil específico, degradación elegante a teselas raster OpenStreetMap
+    map.on('error', (e) => {
+      const msg = e.error?.message || '';
+      if (
+        msg.includes('worker') ||
+        msg.includes('Worker') ||
+        msg.includes('style') ||
+        msg.includes('SecurityError') ||
+        msg.includes('CSP')
+      ) {
+        if (!isStyleReadyRef.current) {
+          try {
+            map.setStyle(FALLBACK_RASTER_STYLE);
+          } catch {
+            // Silencioso
+          }
+        }
+      }
+    });
+
+    const fallbackTimeout = setTimeout(() => {
+      if (!isStyleReadyRef.current && mapRef.current) {
+        try {
+          map.setStyle(FALLBACK_RASTER_STYLE);
+        } catch {
+          // Silencioso
+        }
+      }
+    }, 4500);
+
     map.addControl(new maplibregl.NavigationControl(), 'top-right');
     mapRef.current = map;
+
+    // Forzar redimensionamiento en carga inicial para evitar canvas desalineado en móviles
+    requestAnimationFrame(() => {
+      map.resize();
+    });
+    const initTimer = setTimeout(() => {
+      map.resize();
+    }, 300);
 
     const resizeObserver = new ResizeObserver(() => {
       map.resize();
@@ -92,6 +152,8 @@ export function RouteMap({
     resizeObserver.observe(container);
 
     return () => {
+      clearTimeout(fallbackTimeout);
+      clearTimeout(initTimer);
       resizeObserver.disconnect();
       map.off('style.load', markStyleReady);
       map.off('load', markStyleReady);
@@ -282,8 +344,14 @@ export function RouteMap({
       for (const st of optimalStops) {
         bounds.extend([st.coordinates.lon, st.coordinates.lat]);
       }
+      const isMobile =
+        typeof window !== 'undefined' && window.innerWidth < 1024;
+      const padding = isMobile
+        ? { top: 24, bottom: 44, left: 20, right: 20 }
+        : 64;
+
       map.fitBounds(bounds, {
-        padding: 64,
+        padding,
         maxZoom: 10.5,
         duration: 600,
         essential: true,
@@ -334,7 +402,7 @@ export function RouteMap({
     <div
       role="region"
       aria-label="Mapa interactivo de la ruta y paradas óptimas"
-      className="relative w-full h-full min-h-[320px] bg-[#eae6dc]"
+      className="relative w-full h-full min-h-[260px] lg:min-h-[320px] bg-[#eae6dc] overflow-hidden"
     >
       <div ref={mapContainerRef} className="absolute inset-0 w-full h-full" />
 
