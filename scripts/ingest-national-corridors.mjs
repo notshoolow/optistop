@@ -197,13 +197,68 @@ async function main() {
     return;
   }
 
-  // Guardar archivo maestro nacional
+  // Guardar archivo maestro nacional de fase 2
   const outputPath = path.resolve(rootDir, 'scripts', 'national-phase2-catalog.json');
   fs.writeFileSync(outputPath, JSON.stringify(allGenerated, null, 2), 'utf-8');
   console.log(`Catálogo nacional guardado en: ${outputPath}`);
 
+  // Cargar catálogo de fase 1 y fusionar
+  let phase1Stops = [];
+  const phase1Path = path.resolve(rootDir, 'scripts', 'unified-stops-phase1.json');
+  if (fs.existsSync(phase1Path)) {
+    phase1Stops = JSON.parse(fs.readFileSync(phase1Path, 'utf-8'));
+  }
+
+  const nationalMap = new Map();
+  for (const s of phase1Stops) {
+    nationalMap.set(s.id, { ...s, dataQuality: 'DEMO_UNVERIFIED' });
+  }
+  for (const s of allGenerated) {
+    if (!nationalMap.has(s.id)) {
+      nationalMap.set(s.id, { ...s, dataQuality: 'DEMO_UNVERIFIED' });
+    }
+  }
+
+  const allNationalStops = Array.from(nationalMap.values());
+  console.log(`>>> TOTAL CATÁLOGO COMPLETO ESPAÑA: ${allNationalStops.length} paradas.`);
+
+  // Sobrescribir demo-stops.seed.ts
+  const seedTsContent = `import { RoadStopEntity } from '@/domain/models/types';
+
+/**
+ * Catálogo maestro nacional de paradas y áreas de servicio de España (Fase 1 + Fase 2).
+ * - Cubre A-1, A-2, A-3, A-4, A-5, A-6, AP-7, A-7, A-8, A-66, A-92 y AP-68.
+ * - Total de paradas activas: ${allNationalStops.length}.
+ */
+export const DEMO_STOPS: RoadStopEntity[] = ${JSON.stringify(allNationalStops, null, 2)};
+`;
+  const seedPath = path.resolve(rootDir, 'src', 'infrastructure', 'persistence', 'demo-stops.seed.ts');
+  fs.writeFileSync(seedPath, seedTsContent, 'utf-8');
+  console.log(`[1/3] Actualizado ${seedPath} con ${allNationalStops.length} registros.`);
+
+  // Sobrescribir data/store.json
+  const storePath = path.resolve(rootDir, 'data', 'store.json');
+  if (fs.existsSync(storePath)) {
+    const existingStore = JSON.parse(fs.readFileSync(storePath, 'utf-8'));
+    existingStore.approvedStops = allNationalStops;
+    existingStore.corridors = {};
+    fs.writeFileSync(storePath, JSON.stringify(existingStore, null, 2), 'utf-8');
+    console.log(`[2/3] Actualizado ${storePath}`);
+  }
+
   if (supabaseKey) {
-    console.log(`Insertando ${allGenerated.length} paradas en Supabase (${supabaseUrl})...`);
+    console.log(`[3/3] Sincronizando con Supabase (${supabaseUrl})...`);
+    // Limpiar corridor_cache
+    try {
+      await fetch(`${supabaseUrl}/rest/v1/corridor_cache`, {
+        method: 'DELETE',
+        headers: { apikey: supabaseKey, Authorization: `Bearer ${supabaseKey}` },
+      });
+      console.log('Caché de corredores reiniciada en Supabase.');
+    } catch (err) {
+      console.warn('Aviso limpiando corridor_cache:', err.message);
+    }
+
     let inserted = 0;
     const batchSize = 25;
     for (let i = 0; i < allGenerated.length; i += batchSize) {
@@ -234,9 +289,15 @@ async function main() {
 
       if (res.ok) {
         inserted += batch.length;
+      } else {
+        const err = await res.text();
+        console.error(`Error en lote ${i}-${i + batch.length}:`, err);
       }
     }
-    console.log(`Sincronizadas ${inserted} paradas en Supabase exitosamente.`);
+    console.log(`Sincronizadas ${inserted} nuevas paradas en Supabase exitosamente.`);
+    console.log('='.repeat(70));
+    console.log(`¡Fase 2 Nacional completada con éxito! (${allNationalStops.length} paradas totales en red)`);
+    console.log('='.repeat(70));
   }
 }
 

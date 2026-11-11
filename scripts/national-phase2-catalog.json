@@ -592,28 +592,29 @@
     "googleMapsPlaceUrl": "https://www.google.com/maps/search/?api=1&query=%C3%81rea%20de%20Servicio%20Huetor-Santillan%20(96053)%2C%20Huetor-Santillan"
   },
   {
-    "id": "a7-pk449-albolote-galp",
-    "name": "Área de Servicio Albolote (Galp)",
+    "id": "a7-pk449-albolote-repsol",
+    "name": "Área de Servicio Albolote (Repsol)",
     "category": "SERVICE_AREA",
     "highwayCode": "A-7",
     "kmMarker": 449,
     "locality": "Albolote (Granada)",
     "coordinates": {
-      "lat": 37.23142,
-      "lon": -3.66842
+      "lat": 37.22633,
+      "lon": -3.66872
     },
     "accessType": "DIRECT_SERVICE_AREA",
     "directionNotes": "Margen derecho con acceso directo desde A-7 PK 449",
     "ratingAvg": 4.2,
     "reviewCount": 950,
     "priceLevel": 1,
-    "specialty": "Cafetería y tienda de viaje 24h, café, bollería, bocadillos y repostaje Galp",
+    "specialty": "Cafetería y tienda de viaje 24h, café, bollería, bocadillos y repostaje Repsol",
     "avgStopDurationMin": 20,
-    "openingHours": "L-V: 06:00-23:00; S-D: 07:00-23:00",
+    "openingHours": "L-V: 06:30-22:00; S-D: 07:00-22:00",
     "amenities": {
-      "hasEvChargerNearby": false,
+      "hasEvChargerNearby": true,
+      "evChargerDetails": "Cargador rápido en estación Repsol",
       "hasGasStationOnsite": true,
-      "gasStationBrand": "Galp",
+      "gasStationBrand": "Repsol",
       "hasEasyParking": true,
       "hasCleanRestrooms": true,
       "isPetFriendly": true,
@@ -623,7 +624,7 @@
     },
     "source": "CURATED_DB",
     "dataQuality": "DEMO_UNVERIFIED",
-    "googleMapsPlaceUrl": "https://www.google.com/maps/search/?api=1&query=%C3%81rea%20de%20Servicio%20Albolote%20(Galp)%2C%20Albolote"
+    "googleMapsPlaceUrl": "https://www.google.com/maps/search/?api=1&query=%C3%81rea%20de%20Servicio%20Albolote%20(Repsol)%2C%20Albolote"
   },
   {
     "id": "a7-pk469-lachar-valcarce",
@@ -1851,11 +1852,11 @@
     "kmMarker": 42,
     "locality": "Arahal (Sevilla)",
     "coordinates": {
-      "lat": 37.25492,
-      "lon": -5.56581
+      "lat": 37.25561,
+      "lon": -5.56444
     },
     "accessType": "DIRECT_SERVICE_AREA",
-    "directionNotes": "Margen izquierdo con acceso directo desde A-92 PK 42",
+    "directionNotes": "Margen derecho con acceso directo desde A-92 PK 42",
     "ratingAvg": 4.2,
     "reviewCount": 950,
     "priceLevel": 1,
@@ -2018,29 +2019,29 @@
     "googleMapsPlaceUrl": "https://www.google.com/maps/search/?api=1&query=%C3%81rea%20de%20Servicio%20Estepa%20(Shell)%2C%20Estepa"
   },
   {
-    "id": "a92-pk123-humilladero-area-117-dir-sevilla",
-    "name": "Área de Servicio Humilladero (ÁREA 117 DIR. SEVILLA)",
+    "id": "a92-pk123-humilladero-area-117-dir-malaga",
+    "name": "Área de Servicio Humilladero (ÁREA 117 DIR. MÁLAGA)",
     "category": "SERVICE_AREA",
     "highwayCode": "A-92",
     "kmMarker": 123,
     "locality": "Humilladero (Málaga)",
     "coordinates": {
-      "lat": 37.13194,
-      "lon": -4.69353
+      "lat": 37.13319,
+      "lon": -4.69331
     },
     "accessType": "DIRECT_SERVICE_AREA",
-    "directionNotes": "Margen izquierdo con acceso directo desde A-92 PK 123",
+    "directionNotes": "Margen derecho con acceso directo desde A-92 PK 123",
     "ratingAvg": 4.2,
     "reviewCount": 950,
     "priceLevel": 1,
-    "specialty": "Cafetería y tienda de viaje 24h, café, bollería, bocadillos y repostaje ÁREA 117 DIR. SEVILLA",
+    "specialty": "Cafetería y tienda de viaje 24h, café, bollería, bocadillos y repostaje ÁREA 117 DIR. MÁLAGA",
     "avgStopDurationMin": 20,
     "openingHours": "24 horas",
     "amenities": {
       "hasEvChargerNearby": true,
-      "evChargerDetails": "Cargador rápido en estación ÁREA 117 DIR. SEVILLA",
+      "evChargerDetails": "Cargador rápido en estación ÁREA 117 DIR. MÁLAGA",
       "hasGasStationOnsite": true,
-      "gasStationBrand": "ÁREA 117 DIR. SEVILLA",
+      "gasStationBrand": "ÁREA 117 DIR. MÁLAGA",
       "hasEasyParking": true,
       "hasCleanRestrooms": true,
       "isPetFriendly": true,
@@ -2050,7 +2051,7 @@
     },
     "source": "CURATED_DB",
     "dataQuality": "DEMO_UNVERIFIED",
-    "googleMapsPlaceUrl": "https://www.google.com/maps/search/?api=1&query=%C3%81rea%20de%20Servicio%20Humilladero%20(%C3%81REA%20117%20DIR.%20SEVILLA)%2C%20Humilladero"
+    "googleMapsPlaceUrl": "https://www.google.com/maps/search/?api=1&query=%C3%81rea%20de%20Servicio%20Humilladero%20(%C3%81REA%20117%20DIR.%20M%C3%81LAGA)%2C%20Humilladero"
   },
   {
     "id": "a92-pk137-archidona-repsol",
