@@ -6,6 +6,7 @@ import {
   EvaluatedOptimalStop,
   PriceLevel,
 } from '@/domain/models/types';
+import { buildGoogleReviewsUrl } from '@/domain/navigation/deep-links';
 import {
   Zap,
   Fuel,
@@ -125,13 +126,26 @@ export function OptimalStopCard({
         <div className="mt-3 pl-9 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 text-xs">
             {stop.ratingAvg !== null && stop.reviewCount > 0 ? (
-              <span className="inline-flex items-center gap-1 font-bold text-[#181816]">
-                <Star className="w-3.5 h-3.5 fill-amber-500 text-amber-600" />
+              <a
+                href={buildGoogleReviewsUrl(
+                  stop.coordinates,
+                  stop.name,
+                  stop.googlePlaceId,
+                  stop.googleMapsPlaceUrl
+                )}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                title="Ver opiniones reales y fotos en Google Maps"
+                className="group/rating inline-flex items-center gap-1 font-bold text-[#181816] hover:text-[#1a73e8] hover:underline transition-colors"
+              >
+                <Star className="w-3.5 h-3.5 fill-amber-500 text-amber-600 group-hover/rating:scale-110 transition-transform" />
                 <span>{stop.scoring.bayesianRating}</span>
-                <span className="font-normal text-[#5c5a54]">
+                <span className="font-normal text-[#5c5a54] group-hover/rating:text-[#1a73e8]">
                   ({formatCompactReviews(stop.reviewCount)})
                 </span>
-              </span>
+                <ArrowUpRight className="w-3 h-3 text-[#5c5a54] opacity-60 group-hover/rating:opacity-100 group-hover/rating:text-[#1a73e8] -ml-0.5" />
+              </a>
             ) : (
               <span className="text-xs text-[#5c5a54]">Nuevo en ruta</span>
             )}

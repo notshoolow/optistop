@@ -1,7 +1,25 @@
 import { Coordinates, NavigationLinks } from '../models/types';
 
-export interface NavigationLinksExtended extends NavigationLinks {
-  googleMapsPlaceUrl?: string;
+/**
+ * Genera la URL directa a la ficha y reseñas de Google Maps del establecimiento.
+ */
+export function buildGoogleReviewsUrl(
+  stopCoord: Coordinates,
+  stopName: string,
+  googlePlaceId?: string,
+  googleMapsPlaceUrl?: string
+): string {
+  if (googleMapsPlaceUrl) return googleMapsPlaceUrl;
+  if (googlePlaceId) {
+    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+      stopName
+    )}&query_place_id=${googlePlaceId}`;
+  }
+  const lat = stopCoord.lat.toFixed(5);
+  const lon = stopCoord.lon.toFixed(5);
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+    `${stopName} ${lat},${lon}`
+  )}`;
 }
 
 /**
