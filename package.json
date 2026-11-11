@@ -22,6 +22,7 @@
   },
   "dependencies": {
     "@vercel/analytics": "^2.0.1",
+    "@vercel/speed-insights": "^2.1.0",
     "lucide-react": "^0.475.0",
     "maplibre-gl": "^6.17.0",
     "next": "^15.5.29",
