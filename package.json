@@ -14,7 +14,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "fixtures:corridors": "node scripts/build-corridor-fixtures.mjs",
-    "seed:corridor": "node scripts/seed-corridor.mjs"
+    "seed:corridor": "node scripts/seed-corridor.mjs",
+    "enrich:google": "node scripts/enrich-curated-with-google.mjs"
   },
   "dependencies": {
     "lucide-react": "^0.475.0",
