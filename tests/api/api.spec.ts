@@ -13,6 +13,7 @@ const searchRoute = await import('@/app/api/routes/optimal-stops/route');
 const stopsRoute = await import('@/app/api/stops/route');
 const approveRoute = await import('@/app/api/stops/[id]/approve/route');
 const deleteStopRoute = await import('@/app/api/stops/[id]/route');
+const geocodeRoute = await import('@/app/api/geocode/route');
 
 function req(url: string, init?: { method?: string; body?: unknown; headers?: Record<string, string> }) {
   return new NextRequest(new URL(url, 'http://localhost'), {
@@ -163,5 +164,46 @@ describe('Fase 6 · Corredor AP-7, Moderación DELETE y Persistencia Cloud-Ready
 
     delete process.env.SUPABASE_URL;
     delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+  });
+});
+
+describe('Localidades customizables · Geocodificación sin tildes y corredores completos', () => {
+  it('encuentra localidades aunque el usuario omita tildes o eñes (malaga, a coruna, leon)', async () => {
+    process.env.NOMINATIM_BASE_URL = 'disabled';
+
+    const malagaRes = await geocodeRoute.GET(req('/api/geocode?q=malaga'));
+    expect(malagaRes.status).toBe(200);
+    const malagaData = await malagaRes.json();
+    expect(malagaData.results.map((r: { label: string }) => r.label)).toContain('Málaga');
+
+    const corunaRes = await geocodeRoute.GET(req('/api/geocode?q=a%20coruna'));
+    expect(corunaRes.status).toBe(200);
+    const corunaData = await corunaRes.json();
+    expect(corunaData.results.map((r: { label: string }) => r.label)).toContain('A Coruña');
+
+    const madRes = await geocodeRoute.GET(req('/api/geocode?q=mad'));
+    expect(madRes.status).toBe(200);
+    const madData = await madRes.json();
+    expect(madData.results[0].label).toBe('Madrid');
+  });
+
+  it('cubre corredores adicionales (A-7 Valencia->Málaga, A-66 Sevilla->León) con precisión HIGH sin OSRM', async () => {
+    const res = await searchRoute.POST(
+      req('/api/routes/optimal-stops', {
+        method: 'POST',
+        body: {
+          mode: 'PLANNING',
+          origin: { label: 'Valencia', lat: 39.4699, lon: -0.3763 },
+          destination: { label: 'Málaga', lat: 36.7213, lon: -4.4214 },
+          departureTimeIso: '2026-11-10T10:00:00.000Z',
+          timeZone: 'Europe/Madrid',
+          stopWindow: { type: 'TIME_FROM_START', minMinutesFromStart: 90, maxMinutesFromStart: 180 },
+        },
+      })
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.routeSummary.precision).toBe('HIGH');
+    expect(body.routeSummary.routingProvider).toBe('CORRIDOR_FIXTURE');
   });
 });

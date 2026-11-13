@@ -1,12 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getContainer } from '@/infrastructure/container';
 import { extractClientIp } from '@/infrastructure/security/rate-limiter';
+import { haversineDistanceKm } from '@/domain/geometry/corridor-slicer';
 
 export interface GeocodePlace {
   label: string;
   lat: number;
   lon: number;
   corridorHint?: string;
+}
+
+function normalizeSearchText(value: string): string {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
 }
 
 const POPULAR_SPANISH_LOCATIONS: GeocodePlace[] = [
@@ -100,10 +109,45 @@ const POPULAR_SPANISH_LOCATIONS: GeocodePlace[] = [
 const geocodeCache = new Map<string, GeocodePlace[]>();
 let lastNominatimCallMs = 0;
 
+function rankLocalMatch(loc: GeocodePlace, normQ: string): number {
+  const normLabel = normalizeSearchText(loc.label);
+  if (normLabel === normQ) return 0;
+  if (normLabel.startsWith(normQ)) return 1;
+  if (normLabel.includes(normQ)) return 2;
+  return 3; // corridorHint match
+}
+
+function buildNominatimPlace(
+  item: { display_name?: string; lat?: string; lon?: string },
+  fallbackQuery: string
+): GeocodePlace {
+  const rawParts = String(item.display_name || fallbackQuery)
+    .split(',')
+    .map((p) => p.trim())
+    .filter(Boolean);
+  const label = rawParts[0] || fallbackQuery;
+  // Extraer provincia o región útil para desambiguar pueblos homónimos
+  const regionPart = rawParts
+    .slice(1)
+    .find(
+      (p) =>
+        normalizeSearchText(p) !== normalizeSearchText(label) &&
+        normalizeSearchText(p) !== 'espana' &&
+        !/^\d{4,5}$/.test(p)
+    );
+
+  return {
+    label,
+    lat: Number(item.lat),
+    lon: Number(item.lon),
+    corridorHint: regionPart ? regionPart.slice(0, 32) : undefined,
+  };
+}
+
 export async function GET(req: NextRequest) {
   const { rateLimiter } = getContainer();
   const ip = extractClientIp(req);
-  const rl = rateLimiter.check(`geocode:${ip}`, 20, 60_000);
+  const rl = rateLimiter.check(`geocode:${ip}`, 40, 60_000);
   if (!rl.allowed) {
     return NextResponse.json(
       { error: 'Demasiadas consultas de geocodificación.' },
@@ -114,30 +158,35 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  const q = (req.nextUrl.searchParams.get('q') || '')
-    .trim()
-    .slice(0, 80)
-    .toLowerCase();
+  const rawQuery = (req.nextUrl.searchParams.get('q') || '').trim().slice(0, 80);
+  const normQ = normalizeSearchText(rawQuery);
 
-  if (!q) {
+  if (!normQ) {
     return NextResponse.json({
       results: POPULAR_SPANISH_LOCATIONS.slice(0, 12),
     });
   }
 
-  const cached = geocodeCache.get(q);
+  const cached = geocodeCache.get(normQ);
   if (cached) {
     return NextResponse.json({ results: cached });
   }
 
-  const localMatches = POPULAR_SPANISH_LOCATIONS.filter(
-    (loc) =>
-      loc.label.toLowerCase().includes(q) ||
-      (loc.corridorHint && loc.corridorHint.toLowerCase().includes(q))
-  );
+  const localMatches = POPULAR_SPANISH_LOCATIONS.filter((loc) => {
+    const normLabel = normalizeSearchText(loc.label);
+    const normHint = loc.corridorHint
+      ? normalizeSearchText(loc.corridorHint)
+      : '';
+    return normLabel.includes(normQ) || normHint.includes(normQ);
+  })
+    .sort((a, b) => rankLocalMatch(a, normQ) - rankLocalMatch(b, normQ))
+    .slice(0, 8);
 
-  if (localMatches.length >= 2) {
-    geocodeCache.set(q, localMatches);
+  const hasStrongLocalMatch =
+    localMatches.length > 0 && rankLocalMatch(localMatches[0], normQ) <= 1;
+
+  if (localMatches.length >= 3 && hasStrongLocalMatch) {
+    geocodeCache.set(normQ, localMatches);
     return NextResponse.json({ results: localMatches });
   }
 
@@ -151,15 +200,15 @@ export async function GET(req: NextRequest) {
   if (
     nominatimBase !== 'disabled' &&
     now - lastNominatimCallMs >= 1050 &&
-    q.length >= 3
+    normQ.length >= 2
   ) {
     lastNominatimCallMs = now;
     try {
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 1800);
+      const timer = setTimeout(() => controller.abort(), 2200);
       const res = await fetch(
-        `${nominatimBase}/search?format=json&countrycodes=es&limit=5&q=${encodeURIComponent(
-          q
+        `${nominatimBase}/search?format=json&countrycodes=es&limit=6&q=${encodeURIComponent(
+          rawQuery
         )}`,
         {
           signal: controller.signal,
@@ -174,11 +223,9 @@ export async function GET(req: NextRequest) {
       if (res.ok) {
         const data = await res.json();
         const nominatimResults: GeocodePlace[] = (data ?? [])
-          .map((item: { display_name?: string; lat?: string; lon?: string }) => ({
-            label: String(item.display_name || q).split(',')[0],
-            lat: Number(item.lat),
-            lon: Number(item.lon),
-          }))
+          .map((item: { display_name?: string; lat?: string; lon?: string }) =>
+            buildNominatimPlace(item, rawQuery)
+          )
           .filter(
             (p: GeocodePlace) =>
               Number.isFinite(p.lat) &&
@@ -189,9 +236,22 @@ export async function GET(req: NextRequest) {
               p.lon <= 4.5
           );
 
-        const combined = [...localMatches, ...nominatimResults].slice(0, 6);
-        geocodeCache.set(q, combined);
-        return NextResponse.json({ results: combined });
+        const combined: GeocodePlace[] = [...localMatches];
+        for (const nom of nominatimResults) {
+          const isDuplicate = combined.some(
+            (existing) =>
+              normalizeSearchText(existing.label) ===
+                normalizeSearchText(nom.label) &&
+              haversineDistanceKm(existing, nom) < 8
+          );
+          if (!isDuplicate) {
+            combined.push(nom);
+          }
+        }
+
+        const finalResults = combined.slice(0, 8);
+        geocodeCache.set(normQ, finalResults);
+        return NextResponse.json({ results: finalResults });
       }
     } catch {
       // Continúa con las coincidencias locales

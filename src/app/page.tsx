@@ -27,9 +27,11 @@ import {
   WifiOff,
   RefreshCw,
   SlidersHorizontal,
-  ArrowRight,
+  ArrowUpDown,
   ChevronDown,
+  Loader2,
 } from 'lucide-react';
+import { haversineDistanceKm } from '@/domain/geometry/corridor-slicer';
 
 const RouteMap = dynamic(
   () =>
@@ -210,7 +212,7 @@ function buildClientDepartureIso(hhmm: string): string {
 
 export default function OptiStopHomePage() {
   const [mode, setMode] = useState<'PLANNING' | 'EN_ROUTE'>('PLANNING');
-  const [isEditingRoute, setIsEditingRoute] = useState(false);
+  const [showPresets, setShowPresets] = useState(false);
   const [showCustomWindow, setShowCustomWindow] = useState(false);
 
   const [origin, setOrigin] = useState<PlaceOption>(CORRIDOR_PRESETS[0].origin);
@@ -245,6 +247,10 @@ export default function OptiStopHomePage() {
   const abortControllerRef = useRef<AbortController | null>(null);
   const gpsWatchIdRef = useRef<number | null>(null);
   const lastGpsCoordsRef = useRef<{ lat: number; lon: number } | null>(null);
+  const autoAdaptedRouteKeyRef = useRef<string | null>(null);
+  const userLockedWindowRef = useRef<boolean>(false);
+  const showCustomWindowRef = useRef<boolean>(showCustomWindow);
+  showCustomWindowRef.current = showCustomWindow;
 
   useEffect(() => {
     return () => {
@@ -268,6 +274,14 @@ export default function OptiStopHomePage() {
 
   const executeSearch = useCallback(
     async (signal?: AbortSignal) => {
+      if (haversineDistanceKm(origin, destination) < 2) {
+        setErrorMessage(
+          'El origen y el destino son el mismo punto. Elige dos localidades distintas.'
+        );
+        setIsLoading(false);
+        return;
+      }
+
       setIsLoading(true);
       setErrorMessage(null);
 
@@ -341,6 +355,33 @@ export default function OptiStopHomePage() {
         setSelectedStopId(
           result.optimalStops.length > 0 ? result.optimalStops[0].id : null
         );
+
+        // Adaptar automáticamente la ventana ideal si el usuario eligió una ruta custom con duración distinta
+        const totalMin = result.routeSummary.totalDurationMinutes;
+        const routeKey = `${origin.lat.toFixed(3)},${origin.lon.toFixed(3)}->${destination.lat.toFixed(3)},${destination.lon.toFixed(3)}`;
+        if (
+          mode === 'PLANNING' &&
+          windowType === 'TIME_FROM_START' &&
+          !showCustomWindowRef.current &&
+          !userLockedWindowRef.current &&
+          autoAdaptedRouteKeyRef.current !== routeKey &&
+          totalMin > 25 &&
+          (safeMinMinutes >= totalMin - 15 || safeMaxMinutes < totalMin * 0.15)
+        ) {
+          const idealMin = Math.max(
+            15,
+            Math.min(90, Math.round(totalMin * 0.3))
+          );
+          const idealMax = Math.max(
+            idealMin + 20,
+            Math.min(totalMin - 5, Math.min(165, Math.round(totalMin * 0.65)))
+          );
+          autoAdaptedRouteKeyRef.current = routeKey;
+          if (idealMin !== minMinutes || idealMax !== maxMinutes) {
+            setMinMinutes(idealMin);
+            setMaxMinutes(idealMax);
+          }
+        }
       } catch (err) {
         if ((err as Error)?.name === 'AbortError') return;
         setErrorMessage(
@@ -398,6 +439,8 @@ export default function OptiStopHomePage() {
 
   function handleSelectPreset(preset: CorridorPreset) {
     stopGpsWatch();
+    userLockedWindowRef.current = false;
+    autoAdaptedRouteKeyRef.current = `${preset.origin.lat.toFixed(3)},${preset.origin.lon.toFixed(3)}->${preset.destination.lat.toFixed(3)},${preset.destination.lon.toFixed(3)}`;
     setMode('PLANNING');
     setOrigin(preset.origin);
     setDestination(preset.destination);
@@ -405,7 +448,26 @@ export default function OptiStopHomePage() {
     setMinMinutes(preset.defaultWindowMin);
     setMaxMinutes(preset.defaultWindowMax);
     setShowCustomWindow(false);
-    setIsEditingRoute(false);
+    setShowPresets(false);
+  }
+
+  function handleCustomOriginChange(nextOrigin: PlaceOption) {
+    userLockedWindowRef.current = false;
+    setOrigin(nextOrigin);
+  }
+
+  function handleCustomDestinationChange(nextDestination: PlaceOption) {
+    userLockedWindowRef.current = false;
+    setDestination(nextDestination);
+  }
+
+  function handleSwapLocations() {
+    stopGpsWatch();
+    userLockedWindowRef.current = false;
+    const prevOrigin = origin;
+    const prevDestination = destination;
+    setOrigin(prevDestination);
+    setDestination(prevOrigin);
   }
 
   function handleActivateRealGps() {
@@ -516,13 +578,14 @@ export default function OptiStopHomePage() {
               aria-pressed={mode === 'EN_ROUTE'}
               onClick={() => {
                 setMode('EN_ROUTE');
+                userLockedWindowRef.current = false;
                 const sim = EN_ROUTE_GPS_SIMULATIONS[0];
                 setOrigin(sim.origin);
                 setDestination(sim.destination);
                 setWindowType('TIME_FROM_START');
                 setMinMinutes(10);
                 setMaxMinutes(45);
-                setIsEditingRoute(false);
+                setShowPresets(false);
               }}
               className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
                 mode === 'EN_ROUTE'
@@ -554,106 +617,118 @@ export default function OptiStopHomePage() {
             </div>
           )}
 
-          {/* BLOQUE DE VIAJE COMPACTO (Se pliega automáticamente para evitar ruido) */}
+          {/* BLOQUE DE VIAJE: ORIGEN Y DESTINO CUSTOMIZABLES SIEMPRE ACCESIBLES */}
           {mode === 'PLANNING' ? (
-            <div className="bg-[#fcfbf8] rounded-2xl border border-[#e6e2d8] p-3.5 shadow-2xs">
-              <div className="flex items-center justify-between gap-2">
+            <div className="bg-[#fcfbf8] rounded-2xl border border-[#e6e2d8] p-3.5 shadow-2xs space-y-3">
+              <div className="flex items-start gap-2">
+                <div className="flex-1 space-y-2">
+                  <LocationAutocompleteInput
+                    label="Origen"
+                    value={origin}
+                    onChange={handleCustomOriginChange}
+                    placeholder="Escribe localidad de salida..."
+                    iconVariant="origin"
+                  />
+                  <LocationAutocompleteInput
+                    label="Destino"
+                    value={destination}
+                    onChange={handleCustomDestinationChange}
+                    placeholder="Escribe localidad de llegada..."
+                    iconVariant="destination"
+                  />
+                </div>
+
                 <button
                   type="button"
-                  onClick={() => setIsEditingRoute((v) => !v)}
-                  aria-expanded={isEditingRoute}
-                  className="flex-1 text-left flex items-center justify-between gap-2 cursor-pointer group"
+                  onClick={handleSwapLocations}
+                  title="Intercambiar origen y destino"
+                  aria-label="Intercambiar origen y destino"
+                  className="mt-6 p-2.5 rounded-xl border border-[#e6e2d8] bg-[#f4f1ea] text-[#5c5a54] hover:text-[#165b40] hover:border-[#165b40]/40 transition-colors cursor-pointer shrink-0"
                 >
-                  <div>
-                    <div className="flex items-center gap-2 text-sm font-bold text-[#181816] group-hover:text-[#165b40] transition-colors">
-                      <span>{origin.label}</span>
-                      <ArrowRight className="w-3.5 h-3.5 text-[#5c5a54]" />
-                      <span>{destination.label}</span>
-                    </div>
-                    <div className="text-xs text-[#5c5a54] mt-0.5">
-                      Salida {departureHHMM}
-                      {data
-                        ? ` · ${data.routeSummary.totalDistanceKm} km (${Math.floor(
-                            data.routeSummary.totalDurationMinutes / 60
-                          )}h ${
-                            data.routeSummary.totalDurationMinutes % 60
-                          }m)`
-                        : ''}
-                    </div>
-                  </div>
-
-                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-[#f4f1ea] text-[#181816]">
-                    <span>{isEditingRoute ? 'Cerrar' : 'Cambiar'}</span>
-                    <ChevronDown
-                      className={`w-3.5 h-3.5 transition-transform ${
-                        isEditingRoute ? 'rotate-180' : ''
-                      }`}
-                    />
-                  </span>
+                  <ArrowUpDown className="w-4 h-4" />
                 </button>
               </div>
 
-              {/* Editor desplegable bajo demanda */}
-              {isEditingRoute && (
-                <div className="mt-3.5 pt-3.5 border-t border-[#e6e2d8] space-y-3">
-                  <div className="flex flex-wrap gap-1.5">
-                    {CORRIDOR_PRESETS.map((preset) => {
-                      const active =
-                        origin.label === preset.origin.label &&
-                        destination.label === preset.destination.label;
-                      return (
-                        <button
-                          key={preset.id}
-                          type="button"
-                          onClick={() => handleSelectPreset(preset)}
-                          className={`px-2.5 py-1 rounded-full text-xs font-semibold border transition-colors cursor-pointer ${
-                            active
-                              ? 'bg-[#181816] text-white border-[#181816]'
-                              : 'bg-[#f4f1ea] text-[#181816] border-[#e6e2d8] hover:border-[#b8b2a3]'
-                          }`}
-                        >
-                          <span className="font-bold opacity-75 mr-1">
-                            {preset.highway}
-                          </span>
-                          {preset.title}
-                        </button>
-                      );
-                    })}
-                  </div>
+              {/* Resumen de ruta + hora de salida + acceso rápido a corredores frecuentes */}
+              <div className="pt-2.5 border-t border-[#e6e2d8] flex flex-wrap items-center justify-between gap-2 text-xs">
+                <div className="flex items-center gap-2">
+                  <label
+                    htmlFor="departure-time-input"
+                    className="font-semibold text-[#5c5a54]"
+                  >
+                    Salida
+                  </label>
+                  <input
+                    id="departure-time-input"
+                    type="time"
+                    value={departureHHMM}
+                    onChange={(e) => setDepartureHHMM(e.target.value)}
+                    className="px-2 py-1 rounded-lg border border-[#e6e2d8] text-xs font-bold bg-white"
+                  />
+                  {data && (
+                    <span className="text-[#5c5a54] font-medium">
+                      · {data.routeSummary.totalDistanceKm} km (
+                      {Math.floor(data.routeSummary.totalDurationMinutes / 60)}h{' '}
+                      {data.routeSummary.totalDurationMinutes % 60}m)
+                    </span>
+                  )}
+                </div>
 
-                  <div className="grid grid-cols-2 gap-2.5">
-                    <LocationAutocompleteInput
-                      label="Origen"
-                      value={origin}
-                      onChange={setOrigin}
-                    />
-                    <LocationAutocompleteInput
-                      label="Destino"
-                      value={destination}
-                      onChange={setDestination}
-                    />
-                  </div>
+                <button
+                  type="button"
+                  onClick={() => setShowPresets((v) => !v)}
+                  aria-expanded={showPresets}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-[#f4f1ea] text-[#181816] hover:bg-[#e6e2d8]/70 cursor-pointer transition-colors"
+                >
+                  <span>Rutas frecuentes</span>
+                  <ChevronDown
+                    className={`w-3 h-3 transition-transform ${
+                      showPresets ? 'rotate-180' : ''
+                    }`}
+                  />
+                </button>
+              </div>
 
-                  <div className="flex items-center justify-between gap-2 pt-1">
-                    <label
-                      htmlFor="departure-time-input"
-                      className="text-xs font-semibold text-[#5c5a54]"
-                    >
-                      Hora de salida:
-                    </label>
-                    <input
-                      id="departure-time-input"
-                      type="time"
-                      value={departureHHMM}
-                      onChange={(e) => setDepartureHHMM(e.target.value)}
-                      className="px-2.5 py-1.5 rounded-xl border border-[#e6e2d8] text-xs font-bold bg-white"
-                    />
-                  </div>
+              {showPresets && (
+                <div className="pt-2 border-t border-[#e6e2d8] flex flex-wrap gap-1.5">
+                  {CORRIDOR_PRESETS.map((preset) => {
+                    const active =
+                      origin.label === preset.origin.label &&
+                      destination.label === preset.destination.label;
+                    return (
+                      <button
+                        key={preset.id}
+                        type="button"
+                        onClick={() => handleSelectPreset(preset)}
+                        className={`px-2.5 py-1 rounded-full text-xs font-semibold border transition-colors cursor-pointer ${
+                          active
+                            ? 'bg-[#181816] text-white border-[#181816]'
+                            : 'bg-[#f4f1ea] text-[#181816] border-[#e6e2d8] hover:border-[#b8b2a3]'
+                        }`}
+                      >
+                        <span className="font-bold opacity-75 mr-1">
+                          {preset.highway}
+                        </span>
+                        {preset.title}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
+              {data?.telemetry.warnings.some(
+                (w) => w.code === 'LOW_PRECISION_ROUTE'
+              ) && (
+                <div className="rounded-xl bg-[#fef3c7]/70 border border-[#f59e0b]/30 px-2.5 py-1.5 text-[11px] text-[#92400e] flex items-center gap-1.5">
+                  <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                  <span>
+                    Ruta estimada en línea recta (servidor OSRM temporalmente no disponible).
+                  </span>
                 </div>
               )}
             </div>
           ) : (
-            /* MODO EN RUTA: Aviso compacto + GPS + 3 botones táctiles grandes */
+            /* MODO EN RUTA: GPS + Destino customizable + selector rápido */
             <div className="bg-[#fcfbf8] rounded-2xl border border-[#e6e2d8] p-3.5 space-y-3">
               <div className="flex items-center justify-between gap-2 text-xs text-[#5c5a54]">
                 <span className="inline-flex items-center gap-1.5 font-medium">
@@ -708,6 +783,14 @@ export default function OptiStopHomePage() {
                   ))}
                 </select>
               </div>
+
+              <LocationAutocompleteInput
+                label="Destino"
+                value={destination}
+                onChange={handleCustomDestinationChange}
+                placeholder="Escribe localidad de llegada..."
+                iconVariant="destination"
+              />
             </div>
           )}
 
@@ -738,6 +821,7 @@ export default function OptiStopHomePage() {
                       minMinutes === 50 &&
                       !showCustomWindow,
                     onClick: () => {
+                      userLockedWindowRef.current = true;
                       setShowCustomWindow(false);
                       setWindowType('TIME_FROM_START');
                       setMinMinutes(50);
@@ -750,6 +834,7 @@ export default function OptiStopHomePage() {
                     active:
                       windowType === 'CLOCK_RANGE' && !showCustomWindow,
                     onClick: () => {
+                      userLockedWindowRef.current = true;
                       setShowCustomWindow(false);
                       setWindowType('CLOCK_RANGE');
                       setClockStart('14:00');
@@ -764,6 +849,7 @@ export default function OptiStopHomePage() {
                       minMinutes === 95 &&
                       !showCustomWindow,
                     onClick: () => {
+                      userLockedWindowRef.current = true;
                       setShowCustomWindow(false);
                       setWindowType('TIME_FROM_START');
                       setMinMinutes(95);
@@ -993,10 +1079,22 @@ export default function OptiStopHomePage() {
           {/* 4. LISTA ESCANEABLE DEL TOP 3–5 PARADAS ÓPTIMAS */}
           <div className="space-y-2.5 pt-1">
             <div className="flex items-center justify-between px-0.5">
-              <h2 className="text-xs font-bold uppercase tracking-wider text-[#5c5a54]">
-                {isLoading && !data
-                  ? 'Buscando paradas...'
-                  : `${data?.optimalStops.length ?? 0} paradas recomendadas`}
+              <h2 className="text-xs font-bold uppercase tracking-wider text-[#5c5a54] flex items-center gap-1.5">
+                {isLoading && !data ? (
+                  'Buscando paradas...'
+                ) : (
+                  <>
+                    <span>
+                      {`${data?.optimalStops.length ?? 0} paradas recomendadas`}
+                    </span>
+                    {isLoading && (
+                      <Loader2
+                        aria-label="Actualizando ruta"
+                        className="w-3 h-3 text-[#165b40] animate-spin"
+                      />
+                    )}
+                  </>
+                )}
               </h2>
               <span className="text-[11px] text-[#5c5a54]">
                 Toca una para ver detalles

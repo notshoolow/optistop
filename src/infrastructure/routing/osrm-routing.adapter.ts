@@ -4,6 +4,11 @@ import a3 from '../../../data/corridors/a3.json';
 import a4 from '../../../data/corridors/a4.json';
 import a5 from '../../../data/corridors/a5.json';
 import a6 from '../../../data/corridors/a6.json';
+import a66 from '../../../data/corridors/a66.json';
+import a7 from '../../../data/corridors/a7.json';
+import a8 from '../../../data/corridors/a8.json';
+import a92 from '../../../data/corridors/a92.json';
+import ap68 from '../../../data/corridors/ap68.json';
 import ap7 from '../../../data/corridors/ap7.json';
 import { IRoutingPort, RouteComputation } from '@/domain/models/ports';
 import {
@@ -16,14 +21,27 @@ import { calculateGeometricRoundTripDetour } from '@/domain/scoring/detour-calcu
 
 interface CorridorFixture {
   id: string;
-  from: { label: string; lat: number; lon: number };
-  to: { label: string; lat: number; lon: number };
+  from?: { label: string; lat: number; lon: number };
+  to?: { label: string; lat: number; lon: number };
   distanceKm: number;
   durationMin: number;
   coords: number[][];
 }
 
-const CORRIDOR_FIXTURES: CorridorFixture[] = [a1, a2, a3, a4, a5, a6, ap7];
+const CORRIDOR_FIXTURES: CorridorFixture[] = [
+  a1,
+  a2,
+  a3,
+  a4,
+  a5,
+  a6,
+  a66,
+  a7,
+  a8,
+  a92,
+  ap68,
+  ap7,
+];
 
 export interface OSRMRoutingAdapterOptions {
   baseUrl?: string | null;
@@ -41,7 +59,7 @@ export class OSRMRoutingAdapter implements IRoutingPort {
   private readonly timeoutMs: number;
   private readonly routeCache = new Map<string, RouteComputation>();
 
-  constructor(options?: OSRMRoutingAdapterOptions | string, timeoutMs = 2400) {
+  constructor(options?: OSRMRoutingAdapterOptions | string, timeoutMs = 4000) {
     if (typeof options === 'string') {
       this.baseUrl = options === 'disabled' ? null : options;
       this.timeoutMs = timeoutMs;
